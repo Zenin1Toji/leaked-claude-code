@@ -79,6 +79,38 @@ The raw source snapshot is **unbuildable** — no `package.json`, no `tsconfig.j
 - **Toggle feature flags** (KAIROS, PROACTIVE, BRIDGE_MODE, VOICE_MODE, etc.)
 - **Extend via MCP servers, custom agents, custom skills** without touching source
 
+### How Feature Flags Work
+
+Claude Code uses `bun:bundle`'s `feature()` for compile-time dead code elimination. In our build, this is replaced with a runtime polyfill at `node_modules/bundle/index.js`:
+
+```javascript
+const ENABLED_FEATURES = new Set([
+  // Uncomment any to enable:
+  // 'KAIROS',                // Assistant / daily-log mode
+  // 'PROACTIVE',             // Proactive autonomous mode
+  // 'BRIDGE_MODE',           // VS Code / JetBrains IDE bridge
+  // 'VOICE_MODE',            // Voice input via native audio capture
+  // 'COORDINATOR_MODE',      // Multi-agent swarm coordinator
+  // 'TRANSCRIPT_CLASSIFIER', // Auto-mode permission classifier
+  // 'BASH_CLASSIFIER',       // Bash command safety classifier
+  // 'BUDDY',                 // Companion sprite animation
+  // 'WEB_BROWSER_TOOL',      // In-process web browser tool
+  // 'CHICAGO_MCP',           // Computer Use (screen control)
+  // 'AGENT_TRIGGERS',        // Scheduled cron agents
+  // 'ULTRAPLAN',             // Ultra-detailed planning mode
+  // 'MONITOR_TOOL',          // MCP server monitoring
+  // 'TEAMMEM',               // Shared team memory
+  // 'EXTRACT_MEMORIES',      // Background memory extraction agent
+  // 'MCP_SKILLS',            // Skills from MCP servers
+  // 'REVIEW_ARTIFACT',       // Review artifact tool
+  // 'CONNECTOR_TEXT',        // Connector text blocks
+  // 'DOWNLOAD_USER_SETTINGS',// Remote settings sync
+  // 'MESSAGE_ACTIONS',       // Message action buttons
+  // 'KAIROS_CHANNELS',       // Channel notifications
+  // 'KAIROS_GITHUB_WEBHOOKS',// GitHub webhook integration
+])
+```
+
 ---
 <div align="center">
   
