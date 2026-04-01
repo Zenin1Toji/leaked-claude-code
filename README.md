@@ -1,5 +1,68 @@
 # Claude Code — Leaked Source (2026-03-31)
 
+## leakclaude bootstrap (WIP)
+
+This repo now includes a **minimal runnable CLI scaffold** called `leakclaude`
+in `src/` with provider abstraction and two starter providers:
+
+- `ollama` (local, no paid API key)
+- `openrouter` (single API key)
+
+### Quick start
+
+```bash
+bun install
+bun run dev
+```
+
+Default mode launches interactive chat (`chat`) with `ollama`.
+
+### Commands
+
+```bash
+# list providers
+bun run dev providers
+
+# start agent mode (default if no subcommand)
+bun run dev agent
+
+# chat with ollama (default)
+bun run dev --provider ollama --model llama3.1:8b
+
+# chat with openrouter
+OPENROUTER_API_KEY=... bun run dev --provider openrouter --model openrouter/auto
+
+# build + run built binary
+bun run build
+bun run start --provider ollama
+```
+
+### Environment
+
+Copy `.env.example` to `.env` and set values as needed:
+
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_MODEL`
+- `OLLAMA_MODEL`
+
+### Startup UX flow
+
+On `chat`/`agent`, leakclaude now asks:
+
+1. Provider selection (Ollama/OpenRouter)
+2. OpenRouter API key (if OpenRouter selected)
+3. Tier detection via provider API:
+   - OpenRouter: `GET /api/v1/key` (`is_free_tier`)
+   - Ollama: local mode
+4. Model ID input (validated against tier policy)
+
+Rate limits are applied per tier/account metadata:
+
+- OpenRouter: `rate_limit.requests` from `/api/v1/key` when available, fallback to 60 (paid) / 15 (free)
+- Ollama local: 120 req/min
+
+---
+
 > On March 31, 2026, the full source code of Anthropic's Claude Code CLI was leaked via a `.map` file exposed in their npm registry.
 
 ---

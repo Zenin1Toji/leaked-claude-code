@@ -1,0 +1,32 @@
+{
+  "name": "leakclaude",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local terminal coding agent with provider plugins (Ollama + OpenRouter first)",
+  "type": "module",
+  "main": "dist/main.js",
+  "bin": {
+    "leakclaude": "dist/main.js"
+  },
+  "scripts": {
+    "dev": "bun run src/main.ts",
+    "build": "bun build src/main.ts --outdir dist --target bun",
+    "start": "bun run dist/main.js",
+    "check": "tsc --noEmit",
+    "fmt": "biome format --write .",
+    "lint": "biome lint ."
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.3.2",
+    "chalk": "^5.4.1",
+    "commander": "^14.0.1",
+    "dotenv": "^17.2.3",
+    "openai": "^6.5.0",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.6",
+    "@types/bun": "latest",
+    "typescript": "^5.9.3"
+  }
+}

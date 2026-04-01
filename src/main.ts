@@ -1,0 +1,81 @@
+#!/usr/bin/env bun
+
+import chalk from 'chalk'
+import { Command } from 'commander'
+import { runStartupWizard } from './onboarding'
+import { createProvider } from './providers'
+import { runRepl } from './repl'
+import type { ProviderName } from './types'
+
+const program = new Command()
+
+program
+  .name('leakclaude')
+  .description('Local coding agent with pluggable LLM providers')
+  .option('-p, --provider <name>', 'Provider: ollama | openrouter', 'ollama')
+  .option('-m, --model <name>', 'Model override')
+
+program
+  .command('chat')
+  .description('Start interactive chat REPL')
+  .action(async () => {
+    const opts = program.opts<{ provider: string; model?: string }>()
+    const providerName = opts.provider as ProviderName
+
+    if (providerName !== 'ollama' && providerName !== 'openrouter') {
+      process.stderr.write(
+        chalk.red('Invalid --provider. Use: ollama or openrouter\n'),
+      )
+      process.exit(1)
+    }
+
+    const session = await runStartupWizard(providerName, opts.model)
+    const provider = createProvider(session.provider, {
+      openRouterApiKey: session.openRouterApiKey,
+    })
+    await runRepl(provider, {
+      model: session.model,
+      tierLabel: session.tier,
+      rateLimitPerMinute: session.rateLimitPerMinute,
+    })
+  })
+
+program
+  .command('agent')
+  .description('Start agent mode (currently same runtime as chat, with setup wizard)')
+  .action(async () => {
+    const opts = program.opts<{ provider: string; model?: string }>()
+    const providerName = opts.provider as ProviderName
+
+    if (providerName !== 'ollama' && providerName !== 'openrouter') {
+      process.stderr.write(
+        chalk.red('Invalid --provider. Use: ollama or openrouter\n'),
+      )
+      process.exit(1)
+    }
+
+    const session = await runStartupWizard(providerName, opts.model)
+    const provider = createProvider(session.provider, {
+      openRouterApiKey: session.openRouterApiKey,
+    })
+
+    process.stdout.write(chalk.magenta('Agent mode booting...\n'))
+    await runRepl(provider, {
+      model: session.model,
+      tierLabel: session.tier,
+      rateLimitPerMinute: session.rateLimitPerMinute,
+    })
+  })
+
+program
+  .command('providers')
+  .description('List available providers')
+  .action(() => {
+    process.stdout.write('ollama\nopenrouter\n')
+  })
+
+if (process.argv.length <= 2) {
+  process.argv.push('agent')
+}
+
+void program.parseAsync(process.argv)
