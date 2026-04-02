@@ -37,6 +37,19 @@ bun run build
 bun run start --provider ollama
 ```
 
+### REPL slash commands
+
+Inside `chat`/`agent` REPL:
+
+- `/help`
+- `/status`
+- `/limits`
+- `/provider`
+- `/model`
+- `/run <cmd>` (asks confirmation before execution)
+- `/read <path>` (prints up to 200 lines)
+- `/write <path>` (prompts for content + confirmation; blocks writes outside cwd)
+
 ### Environment
 
 Copy `.env.example` to `.env` and set values as needed:
@@ -60,6 +73,13 @@ Rate limits are applied per tier/account metadata:
 
 - OpenRouter: `rate_limit.requests` from `/api/v1/key` when available, fallback to 60 (paid) / 15 (free)
 - Ollama local: 120 req/min
+
+### Persistence
+
+Session data is stored in a local `.leakclaude/` directory at project root:
+
+- `.leakclaude/config.json` (persisted provider/model/OpenRouter key/tier/rate limit defaults)
+- `.leakclaude/session.jsonl` (appended user + assistant message history)
 
 ---
 
