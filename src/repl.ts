@@ -118,6 +118,37 @@ function parseCommand(text: string): { name: string; args: string } {
   };
 }
 
+function parseMouseWheelDirection(
+  sequence: string | undefined,
+): "up" | "down" | null {
+  if (!sequence) return null;
+
+  // SGR mouse mode (enabled via ?1006h):
+  //   ESC [ < 64 ; x ; y M  => wheel up
+  //   ESC [ < 65 ; x ; y M  => wheel down
+  if (sequence.startsWith("\x1b[<")) {
+    const body = sequence.slice(3);
+    const terminatorIndex = body.search(/[mM]/);
+    if (terminatorIndex !== -1) {
+      const payload = body.slice(0, terminatorIndex);
+      const [codeRaw] = payload.split(";");
+      const code = Number.parseInt(codeRaw ?? "", 10);
+      if (code === 64) return "up";
+      if (code === 65) return "down";
+    }
+  }
+
+  // Legacy X10 mouse mode:
+  //   ESC [ M Cb Cx Cy, where (Cb - 32) is button code
+  if (sequence.startsWith("\x1b[M") && sequence.length >= 6) {
+    const code = sequence.charCodeAt(3) - 32;
+    if ((code & 0b11_1111) === 64) return "up";
+    if ((code & 0b11_1111) === 65) return "down";
+  }
+
+  return null;
+}
+
 export async function runRepl(
   provider: LLMProvider,
   context: ReplRuntimeContext,
@@ -632,6 +663,15 @@ export async function runRepl(
   };
 
   await new Promise<void>((resolve) => {
+    const enableMouseTracking = () => {
+      // 1000: button tracking, 1006: SGR extended coordinates
+      process.stdout.write("\x1b[?1000h\x1b[?1006h");
+    };
+
+    const disableMouseTracking = () => {
+      process.stdout.write("\x1b[?1000l\x1b[?1006l");
+    };
+
     const cleanup = () => {
       if (closed) return;
       closed = true;
@@ -639,6 +679,8 @@ export async function runRepl(
       process.stdin.off("keypress", onKeypress);
       process.stdout.off("resize", onResize);
       process.off("SIGINT", onSigint);
+
+      disableMouseTracking();
 
       if (process.stdin.isTTY) {
         process.stdin.setRawMode(false);
@@ -663,6 +705,16 @@ export async function runRepl(
       key: { name?: string; ctrl?: boolean; meta?: boolean; sequence?: string },
     ) => {
       if (prompting) return;
+
+      const wheel = parseMouseWheelDirection(key.sequence ?? str);
+      if (wheel === "up") {
+        scrollTranscriptBy(1);
+        return;
+      }
+      if (wheel === "down") {
+        scrollTranscriptBy(-1);
+        return;
+      }
 
       const canScrollTranscript = inputBuffer.length === 0;
 
@@ -745,6 +797,7 @@ export async function runRepl(
     if (process.stdin.isTTY) {
       process.stdin.setRawMode(true);
     }
+    enableMouseTracking();
     process.stdin.resume();
 
     process.stdin.on("keypress", onKeypress);

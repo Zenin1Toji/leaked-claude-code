@@ -136,6 +136,7 @@ Safety rules:
 - Scroll transcript history with:
   - `↑` / `↓` (or `Ctrl+P` / `Ctrl+N`) when input is empty
   - `PgUp` / `PgDn` for larger jumps
+  - Mouse wheel / trackpad scroll (terminal support required)
 - In `PLAN` mode, a normal prompt runs in two phases:
   1. Generate plan response
   2. Ask for confirmation
