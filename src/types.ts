@@ -22,6 +22,7 @@ export type SessionBootstrap = {
 };
 
 export type PersistedConfig = {
+  onboarded: boolean;
   provider: ProviderName;
   model: string;
   openRouterApiKey?: string;
@@ -31,13 +32,39 @@ export type PersistedConfig = {
 
 export type SessionMessageRole = "user" | "assistant";
 
+export type StoredSessionMessage = {
+  sessionId: string;
+  timestamp: string;
+  role: SessionMessageRole;
+  content: string;
+  provider: ProviderName;
+  model: string;
+};
+
+export type SessionSummary = {
+  sessionId: string;
+  startedAt: string;
+  lastAt: string;
+  provider: ProviderName;
+  model: string;
+  messageCount: number;
+  preview: string;
+};
+
 export type ReplRuntimeContext = {
   provider: ProviderName;
   model: string;
   tierLabel: SubscriptionTier;
   rateLimitPerMinute: number;
   cwd: string;
-  persistMessage?: (role: SessionMessageRole, content: string) => Promise<void>;
+  sessionId: string;
+  persistMessage?: (
+    sessionId: string,
+    role: SessionMessageRole,
+    content: string,
+  ) => Promise<void>;
+  listSessions?: () => Promise<SessionSummary[]>;
+  loadSessionMessages?: (sessionId: string) => Promise<StoredSessionMessage[]>;
 };
 
 export interface LLMProvider {

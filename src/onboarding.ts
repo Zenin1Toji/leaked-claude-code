@@ -28,6 +28,22 @@ export async function runStartupWizard(
   defaultModel?: string,
   persistedDefaults?: Partial<PersistedConfig>,
 ): Promise<SessionBootstrap> {
+  if (
+    persistedDefaults?.onboarded === true &&
+    persistedDefaults.provider &&
+    persistedDefaults.model &&
+    !defaultModel
+  ) {
+    return {
+      provider: persistedDefaults.provider,
+      model: persistedDefaults.model,
+      tier: persistedDefaults.lastTier || "local",
+      rateLimitPerMinute: persistedDefaults.lastRateLimit || 120,
+      openRouterApiKey: persistedDefaults.openRouterApiKey,
+      availableModels: [],
+    };
+  }
+
   const provider = (await select({
     message: "Choose provider",
     default: persistedDefaults?.provider || defaultProvider,

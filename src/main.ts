@@ -3,7 +3,13 @@
 import chalk from "chalk";
 import { Command } from "commander";
 import { runStartupWizard } from "./onboarding";
-import { appendSessionMessage, loadConfig, saveConfig } from "./persistence";
+import {
+  appendSessionMessage,
+  listSessionSummaries,
+  loadConfig,
+  loadSessionMessages,
+  saveConfig,
+} from "./persistence";
 import { createProvider } from "./providers";
 import { runRepl } from "./repl";
 import type { ProviderName } from "./types";
@@ -28,8 +34,24 @@ async function resolveSession(commandLabel: "chat" | "agent") {
     process.exit(1);
   }
 
-  const session = await runStartupWizard(providerName, opts.model, persisted);
+  const shouldSkipWizard =
+    persisted.onboarded === true && !opts.provider && !opts.model;
+
+  const session = shouldSkipWizard
+    ? {
+        provider: persisted.provider,
+        model: persisted.model,
+        tier: persisted.lastTier,
+        rateLimitPerMinute: persisted.lastRateLimit,
+        openRouterApiKey: persisted.openRouterApiKey,
+        availableModels: [],
+      }
+    : await runStartupWizard(providerName, opts.model, persisted);
+
+  const sessionId = crypto.randomUUID();
+
   await saveConfig({
+    onboarded: true,
     provider: session.provider,
     model: session.model,
     openRouterApiKey: session.openRouterApiKey,
@@ -51,8 +73,11 @@ async function resolveSession(commandLabel: "chat" | "agent") {
     tierLabel: session.tier,
     rateLimitPerMinute: session.rateLimitPerMinute,
     cwd: process.cwd(),
-    persistMessage: (role, content) =>
-      appendSessionMessage(role, content, session.provider, session.model),
+    sessionId,
+    persistMessage: (id, role, content) =>
+      appendSessionMessage(id, role, content, session.provider, session.model),
+    listSessions: listSessionSummaries,
+    loadSessionMessages,
   });
 }
 

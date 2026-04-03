@@ -118,6 +118,7 @@ When you start `agent` or `chat`, leakclaude will ask:
 - `/limits` — active request limit
 - `/provider` — current provider
 - `/model` — current model
+- `/history` — browse previous sessions and preview messages
 - `/run <cmd>` — run shell command (asks confirmation)
 - `/read <path>` — read text file (up to 200 lines)
 - `/write <path>` — write file (prompts content + confirmation)
@@ -127,6 +128,20 @@ Safety rules:
 - `/run` always asks before execution
 - `/write` is blocked for paths outside current working directory
 
+### Keyboard TUI modes
+
+- The REPL now uses a keyboard-driven redraw UI with an always-visible header.
+- Header shows the currently connected `provider` and `model`.
+- Press `TAB` to toggle between `AGENT` and `PLAN` mode.
+- Scroll transcript history with:
+  - `↑` / `↓` (or `Ctrl+P` / `Ctrl+N`) when input is empty
+  - `PgUp` / `PgDn` for larger jumps
+- In `PLAN` mode, a normal prompt runs in two phases:
+  1. Generate plan response
+  2. Ask for confirmation
+  3. If confirmed, generate implementation response using that plan
+  4. If not confirmed, stop after the plan
+
 ---
 
 ## Persistence
@@ -135,8 +150,16 @@ leakclaude stores local runtime data in:
 
 - `.leakclaude/config.json`
   - remembers provider/model and recent tier/rate defaults
+  - includes `onboarded` flag for one-time setup flow
 - `.leakclaude/session.jsonl`
-  - appends user and assistant messages
+  - appends user and assistant messages with `sessionId`
+
+### One-time onboarding behavior
+
+- First launch: onboarding wizard runs (provider/key/model setup)
+- Next launches: wizard is skipped automatically and a new session starts directly
+- You can still override at launch using CLI flags (e.g. `--provider`, `--model`)
+- Use `/history` inside TUI to browse and preview prior sessions
 
 ---
 

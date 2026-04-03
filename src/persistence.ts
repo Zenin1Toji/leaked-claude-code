@@ -6,6 +6,8 @@ import type {
   PersistedConfig,
   ProviderName,
   SessionMessageRole,
+  SessionSummary,
+  StoredSessionMessage,
 } from "./types";
 
 const DATA_DIR_NAME = ".leakclaude";
@@ -15,6 +17,7 @@ export const CONFIG_PATH = path.join(DATA_DIR_PATH, "config.json");
 export const SESSION_HISTORY_PATH = path.join(DATA_DIR_PATH, "session.jsonl");
 
 const DEFAULT_CONFIG: PersistedConfig = {
+  onboarded: false,
   provider: "ollama",
   model: getDefaultModel("ollama"),
   lastTier: "local",
@@ -22,6 +25,7 @@ const DEFAULT_CONFIG: PersistedConfig = {
 };
 
 const ConfigSchema = z.object({
+  onboarded: z.boolean().optional(),
   provider: z.enum(["ollama", "openrouter"]).optional(),
   model: z.string().min(1).optional(),
   openRouterApiKey: z.string().min(1).optional(),
@@ -39,6 +43,7 @@ function mergeWithDefaults(
   return {
     ...DEFAULT_CONFIG,
     ...parsed,
+    onboarded: parsed?.onboarded === true,
     provider: (parsed?.provider as ProviderName) || DEFAULT_CONFIG.provider,
     model: parsed?.model?.trim() || DEFAULT_CONFIG.model,
     openRouterApiKey: parsed?.openRouterApiKey?.trim() || undefined,
@@ -82,6 +87,7 @@ export async function saveConfig(config: PersistedConfig): Promise<void> {
 }
 
 export async function appendSessionMessage(
+  sessionId: string,
   role: SessionMessageRole,
   content: string,
   provider: ProviderName,
@@ -89,6 +95,7 @@ export async function appendSessionMessage(
 ): Promise<void> {
   await ensureDataDir();
   const record = {
+    sessionId,
     timestamp: new Date().toISOString(),
     role,
     content,
@@ -96,4 +103,83 @@ export async function appendSessionMessage(
     model,
   };
   await appendFile(SESSION_HISTORY_PATH, `${JSON.stringify(record)}\n`, "utf8");
+}
+
+function summarizePreview(text: string, limit = 88): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= limit) return clean;
+  return `${clean.slice(0, Math.max(0, limit - 1))}…`;
+}
+
+export async function loadSessionMessages(
+  sessionId: string,
+): Promise<StoredSessionMessage[]> {
+  await ensureDataDir();
+  try {
+    const raw = await readFile(SESSION_HISTORY_PATH, "utf8");
+    const lines = raw.split(/\r?\n/).filter(Boolean);
+    const output: StoredSessionMessage[] = [];
+
+    for (const line of lines) {
+      try {
+        const parsed = JSON.parse(line) as StoredSessionMessage;
+        if (parsed.sessionId === sessionId) {
+          output.push(parsed);
+        }
+      } catch {
+        // skip malformed lines
+      }
+    }
+
+    return output;
+  } catch {
+    return [];
+  }
+}
+
+export async function listSessionSummaries(): Promise<SessionSummary[]> {
+  await ensureDataDir();
+  try {
+    const raw = await readFile(SESSION_HISTORY_PATH, "utf8");
+    const lines = raw.split(/\r?\n/).filter(Boolean);
+    const map = new Map<string, SessionSummary>();
+
+    for (const line of lines) {
+      try {
+        const parsed = JSON.parse(line) as StoredSessionMessage;
+        if (!parsed.sessionId || !parsed.timestamp || !parsed.role) continue;
+
+        const existing = map.get(parsed.sessionId);
+        if (!existing) {
+          map.set(parsed.sessionId, {
+            sessionId: parsed.sessionId,
+            startedAt: parsed.timestamp,
+            lastAt: parsed.timestamp,
+            provider: parsed.provider,
+            model: parsed.model,
+            messageCount: 1,
+            preview: summarizePreview(parsed.content),
+          });
+          continue;
+        }
+
+        existing.messageCount += 1;
+        if (parsed.timestamp < existing.startedAt) {
+          existing.startedAt = parsed.timestamp;
+        }
+        if (parsed.timestamp > existing.lastAt) {
+          existing.lastAt = parsed.timestamp;
+          if (parsed.role === "user") {
+            existing.preview = summarizePreview(parsed.content);
+          }
+        }
+      } catch {
+        // skip malformed line
+      }
+    }
+
+    return [...map.values()].sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+  } catch {
+    return [];
+  }
 }
