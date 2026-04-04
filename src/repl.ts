@@ -146,7 +146,54 @@ function parseMouseWheelDirection(
     if ((code & 0b11_1111) === 65) return "down";
   }
 
+  // urxvt/1015 style: ESC [ Cb ; Cx ; Cy M
+  if (sequence.startsWith("\x1b[") && sequence.endsWith("M")) {
+    const payload = sequence.slice(2, -1);
+    const [codeRaw] = payload.split(";");
+    const code = Number.parseInt(codeRaw ?? "", 10);
+    if (code === 64) return "up";
+    if (code === 65) return "down";
+  }
+
   return null;
+}
+
+function isMouseSequence(sequence: string | undefined): boolean {
+  if (!sequence) return false;
+
+  // SGR (1006): ESC [ < Cb ; Cx ; Cy (m|M)
+  if (sequence.startsWith("\x1b[<")) {
+    return true;
+  }
+
+  // X10 (1000): ESC [ M Cb Cx Cy
+  if (sequence.startsWith("\x1b[M") && sequence.length >= 6) {
+    return true;
+  }
+
+  // urxvt/1015: ESC [ Cb ; Cx ; Cy M
+  if (sequence.startsWith("\x1b[") && sequence.endsWith("M")) {
+    const parts = sequence.slice(2, -1).split(";");
+    if (parts.length === 3 && parts.every((part) => /^\d+$/.test(part))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isPrintableInputChunk(sequence: string | undefined): boolean {
+  if (!sequence) return false;
+  if (sequence.includes("\x1b")) return false;
+
+  for (const ch of sequence) {
+    const code = ch.charCodeAt(0);
+    if (code < 32 || code === 127) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 export async function runRepl(
@@ -706,13 +753,20 @@ export async function runRepl(
     ) => {
       if (prompting) return;
 
-      const wheel = parseMouseWheelDirection(key.sequence ?? str);
+      const sequence = key.sequence ?? str;
+
+      const wheel = parseMouseWheelDirection(sequence);
       if (wheel === "up") {
         scrollTranscriptBy(1);
         return;
       }
       if (wheel === "down") {
         scrollTranscriptBy(-1);
+        return;
+      }
+
+      // Ignore mouse events from terminals with different mouse encodings.
+      if (isMouseSequence(sequence)) {
         return;
       }
 
@@ -787,8 +841,8 @@ export async function runRepl(
         return;
       }
 
-      if (str) {
-        inputBuffer += str;
+      if (isPrintableInputChunk(sequence)) {
+        inputBuffer += sequence;
         render();
       }
     };
